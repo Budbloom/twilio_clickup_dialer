@@ -107,14 +107,33 @@ function App() {
       }
 
       const { token } = await response.json()
-      const createdDevice = await Device.create(token, {
-        codecPreferences: ['opus', 'pcmu'],
-        logLevel: 'error',
-      })
+
+      const createDevice = async () => {
+        const options = {
+          codecPreferences: ['opus', 'pcmu'],
+          logLevel: 'error',
+        }
+
+        if (typeof Device.create === 'function') {
+          return Device.create(token, options)
+        }
+
+        return new Device(token, options)
+      }
+
+      const createdDevice = await createDevice()
 
       registerDeviceEvents(createdDevice)
       setDevice(createdDevice)
       appendLog('Twilio Device created')
+
+      if (
+        typeof Device.create !== 'function' &&
+        typeof createdDevice.register === 'function'
+      ) {
+        await createdDevice.register()
+      }
+
       return createdDevice
     } catch (err) {
       const message = err?.message || 'Unexpected error'
