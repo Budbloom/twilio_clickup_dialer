@@ -1,0 +1,19 @@
+# Node dependencies
+node_modules/
+frontend/node_modules/
+
+# Environment files (keep the .example files tracked)
+.env
+.env.local
+.env.development
+.env.production
+frontend/.env
+frontend/.env.local
+frontend/.env.development
+frontend/.env.production
+
+# Build output
+frontend/dist/
+
+# Misc
+.DS_Store

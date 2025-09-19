@@ -1,0 +1,21 @@
+[build]
+  command = "npm run build"
+  publish = "frontend/dist"
+  functions = "netlify/functions"
+
+[dev]
+  command = "npm run dev"
+  functions = "netlify/functions"
+  publish = "frontend"
+  targetPort = 5173
+  port = 8888
+
+[[redirects]]
+  from = "/api/token"
+  to = "/.netlify/functions/token"
+  status = 200
+
+[[redirects]]
+  from = "/api/voice"
+  to = "/.netlify/functions/voice"
+  status = 200
