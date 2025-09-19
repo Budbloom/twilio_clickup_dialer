@@ -41,7 +41,7 @@ function App() {
       setNumber(queryNumber)
       appendLog(`Pre-filled number from URL: ${queryNumber}`)
     }
-  }, [appendLog])
+  }, [appendLog, setError])
 
   useEffect(() => {
     return () => {
@@ -81,6 +81,54 @@ function App() {
     dev.on('disconnect', () => {
       appendLog('Call disconnected')
       setStatus('ready')
+      setConnection(null)
+    })
+  }, [appendLog])
+
+  const attachCallListeners = useCallback((call) => {
+    if (!call || typeof call.on !== 'function') {
+      return
+    }
+
+    call.on('ringing', () => {
+      setStatus('connecting')
+      appendLog('Call ringing')
+    })
+
+    call.on('accept', () => {
+      setStatus('on-call')
+      appendLog('Call accepted')
+    })
+
+    call.on('disconnect', () => {
+      appendLog('Call disconnected')
+      setStatus('ready')
+      setConnection(null)
+    })
+
+    call.on('cancel', () => {
+      appendLog('Call cancelled')
+      setStatus('ready')
+      setConnection(null)
+    })
+
+    call.on('reject', () => {
+      appendLog('Call rejected')
+      setStatus('ready')
+      setConnection(null)
+    })
+
+    call.on('busy', () => {
+      appendLog('Line busy')
+      setStatus('ready')
+      setConnection(null)
+    })
+
+    call.on('error', (err) => {
+      const message = err?.message || 'Call error'
+      appendLog(`Call error: ${message}`)
+      setError(message)
+      setStatus('error')
       setConnection(null)
     })
   }, [appendLog])
@@ -162,6 +210,7 @@ function App() {
           identity,
         },
       })
+      attachCallListeners(outgoing)
       setConnection(outgoing)
       appendLog(`Dialing ${number}`)
     } catch (err) {
@@ -170,17 +219,32 @@ function App() {
       setStatus('error')
       appendLog(`Call failed: ${message}`)
     }
-  }, [appendLog, ensureDevice, identity, number])
+  }, [appendLog, attachCallListeners, ensureDevice, identity, number])
 
   const handleHangup = useCallback(() => {
     if (connection) {
-      connection.disconnect()
-      appendLog('Call disconnected manually')
+      try {
+        const statusFn = typeof connection.status === 'function' ? connection.status() : undefined
+        if (typeof connection.cancel === 'function' && (statusFn === 'pending' || statusFn === 'connecting')) {
+          connection.cancel()
+        } else if (typeof connection.disconnect === 'function') {
+          connection.disconnect()
+        }
+        appendLog('Call disconnected manually')
+      } catch (err) {
+        const message = err?.message || 'Failed to hang up'
+        appendLog(`Hangup error: ${message}`)
+        setError(message)
+      }
     }
-    if (device) {
+
+    if (typeof device?.disconnectAll === 'function') {
       device.disconnectAll()
     }
-  }, [appendLog, connection, device])
+
+    setStatus('ready')
+    setConnection(null)
+  }, [appendLog, connection, device, setError, setStatus])
 
   const statusLabel = useMemo(() => {
     switch (status) {
