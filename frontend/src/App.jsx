@@ -2,7 +2,21 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Device } from '@twilio/voice-sdk'
 import './App.css'
 
-const tokenEndpoint = import.meta.env.VITE_TOKEN_ENDPOINT || 'http://localhost:3001/token'
+const resolveDefaultTokenEndpoint = () => {
+  if (typeof window === 'undefined') {
+    return '/api/token'
+  }
+
+  return window.location.origin.includes('localhost')
+    ? 'http://localhost:3001/token'
+    : '/api/token'
+}
+
+const envTokenEndpoint = import.meta.env.VITE_TOKEN_ENDPOINT
+
+const tokenEndpoint = envTokenEndpoint && !envTokenEndpoint.includes('localhost:3001')
+  ? envTokenEndpoint
+  : resolveDefaultTokenEndpoint()
 const defaultIdentity = import.meta.env.VITE_TWILIO_DEFAULT_IDENTITY || 'clickup-agent'
 
 function App() {
