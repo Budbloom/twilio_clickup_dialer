@@ -41,7 +41,20 @@ function App() {
       setNumber(queryNumber)
       appendLog(`Pre-filled number from URL: ${queryNumber}`)
     }
-  }, [appendLog, setError])
+
+    if ('registerProtocolHandler' in navigator) {
+      try {
+        navigator.registerProtocolHandler(
+          'tel',
+          `${window.location.origin}/?number=%s`,
+          'ClickUp Dialer'
+        )
+        appendLog('Registered as tel protocol handler')
+      } catch (err) {
+        appendLog(`Protocol handler registration failed: ${err?.message || err}`)
+      }
+    }
+  }, [appendLog])
 
   useEffect(() => {
     return () => {
@@ -171,6 +184,12 @@ function App() {
 
       const createdDevice = await createDevice()
 
+      const sdkVersion = createdDevice.version || Device.version
+      if (sdkVersion) {
+        window.twilioVoiceSdkVersion = sdkVersion
+        appendLog(`Using Twilio Voice SDK v${sdkVersion}`)
+      }
+
       registerDeviceEvents(createdDevice)
       setDevice(createdDevice)
       appendLog('Twilio Device created')
@@ -245,6 +264,77 @@ function App() {
     setStatus('ready')
     setConnection(null)
   }, [appendLog, connection, device, setError, setStatus])
+
+  const handleSendDigits = useCallback((digits) => {
+    if (!connection || typeof connection.sendDigits !== 'function') {
+      return
+    }
+
+    try {
+      connection.sendDigits(digits)
+      appendLog(`Sent DTMF ${digits}`)
+    } catch (err) {
+      const message = err?.message || 'Failed to send digits'
+      appendLog(`DTMF error: ${message}`)
+      setError(message)
+    }
+  }, [appendLog, connection])
+
+  useEffect(() => {
+    const activeCall = connection && (status === 'connecting' || status === 'on-call')
+    if (!activeCall) {
+      return
+    }
+
+    const keyedDigits = {
+      '0': '0',
+      '1': '1',
+      '2': '2',
+      '3': '3',
+      '4': '4',
+      '5': '5',
+      '6': '6',
+      '7': '7',
+      '8': '8',
+      '9': '9',
+      '*': '*',
+      '#': '#',
+      w: 'w',
+      p: 'p',
+    }
+
+    const handleKeyDown = (event) => {
+      const target = event.target
+      if (target?.isContentEditable) {
+        return
+      }
+
+      const tagName = target?.tagName?.toLowerCase()
+      if (tagName === 'input' || tagName === 'textarea') {
+        return
+      }
+
+      const key = event.key
+      if (!key || key.length !== 1) {
+        return
+      }
+
+      const normalizedKey = key.toLowerCase()
+      const digits = keyedDigits[normalizedKey]
+      if (!digits) {
+        return
+      }
+
+      event.preventDefault()
+      handleSendDigits(digits)
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [connection, handleSendDigits, status])
 
   const statusLabel = useMemo(() => {
     switch (status) {
